@@ -1,6 +1,8 @@
 var _ = require("lodash");
 var Chan = require("../../models/chan");
 var Msg = require("../../models/msg");
+var PushBullet = require("pushbullet");
+var pusher = new PushBullet("<NEEDS YOUR API KEY FROM https://www.pushbullet.com/account>");
 
 module.exports = function(irc, network) {
 	var client = this;
@@ -48,6 +50,19 @@ module.exports = function(irc, network) {
 			chan.unread++;
 		}
 
+        // pushbullet stuff
+        // only pushes to iOS devices for now
+		if (type.indexOf("highlight") > -1) {
+			pusher.devices(function(error, response) {
+				for (var device in response.devices) {
+					if (response.devices[device].active && response.devices[device].type == "ios") {
+						pusher.note(response.devices[device].iden, data.from+"@"+chan.name+": "+text, "pushed from shout", function(error, response) {
+						});
+					}
+				}
+			});
+		}
+
 		var name = data.from;
 		var msg = new Msg({
 			type: type || Msg.Type.MESSAGE,
@@ -56,6 +71,7 @@ module.exports = function(irc, network) {
 			text: text,
 			self: self
 		});
+
 		chan.messages.push(msg);
 		client.emit("msg", {
 			chan: chan.id,
